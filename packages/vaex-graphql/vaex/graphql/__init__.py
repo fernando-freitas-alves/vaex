@@ -170,7 +170,6 @@ def create_groupby(df, groupby):
         postfix = "_" + postfix
     class GroupByBase(graphene.ObjectType):
         count = graphene.List(graphene.Int)
-        keys = graphene.List(graphene.Int)
 
         def __init__(self, df, by=None):
             self.df = df
@@ -188,14 +187,12 @@ def create_groupby(df, groupby):
             dfg = self.groupby.agg('count')
             return dfg['count'].tolist()
 
-        def resolve_keys(self, info):
-            return self.groupby.coords1d[-1]
-
     def field_groupby(name):
         Aggregate = create_aggregate(df, groupby + [name])
         def resolver(*args, **kwargs):
             return Aggregate(df, groupby + [name])
         return graphene.Field(Aggregate, resolver=resolver)
+
     attrs = {name: field_groupby(name) for name in df.get_column_names()}
     GroupBy = type("GroupBy"+postfix, (GroupByBase, ), attrs)
     return GroupBy
@@ -228,6 +225,7 @@ def create_aggregate(df, groupby=None):
         min = graphene.Field(AggregationOnField)
         max = graphene.Field(AggregationOnField)
         mean = graphene.Field(AggregationOnField)
+        keys = graphene.List(graphene.ID)
         if not groupby:
             row = graphene.List(Row, limit=graphene.Int(default_value=100), offset=graphene.Int())
 
@@ -262,6 +260,8 @@ def create_aggregate(df, groupby=None):
                 self._groupby = self.df.groupby(self.by)
             return self._groupby
 
+        def resolve_keys(self, info):
+            return self.groupby_object._coords1d[-1]
         def resolve_count(self, info):
             if self.by:
                 groupby = self.groupby_object
